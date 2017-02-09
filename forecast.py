@@ -63,7 +63,7 @@ class GUI():
 
     def create_time_slider(self):
         self.timeslider = qtw.QSlider(Qt.Horizontal)
-        self.timeslider.setTickPosition(3)
+        self.timeslider.setTickPosition(0)
         self.timeslider.setTickInterval(71)
         self.maingrid.addWidget(self.timeslider, 2, 0)
 
