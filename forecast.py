@@ -6,8 +6,6 @@ import sys, json
 class GUI():
 
     def __init__(self):
-        self.monofont = QtGui.QFont('andale mono', 8)
-
         self.create_mainframe()
         self.create_main_grid()
         self.create_search_grid()
@@ -193,7 +191,6 @@ class GUI():
 
     def do_fuck_all(self):
         pass
-
 
 
 class Program():
