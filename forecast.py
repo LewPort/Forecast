@@ -1,32 +1,56 @@
 from PyQt5 import QtWidgets, QtGui
+from PyQt5.QtWidgets import QMainWindow
 from PyQt5.QtCore import Qt
 from urllib.request import urlopen
 import sys, json
 
-class GUI():
+version = '1.0'
+
+class GUI(QMainWindow):
 
     def __init__(self):
+
+        super(GUI, self).__init__()
+        self.init_UI()
         self.create_mainframe()
         self.create_main_grid()
-        self.create_search_grid()
+        self.create_upper_grid()
         self.create_hourly_grid()
-        self.create_location_search_bar()
-        self.create_weather_display()
+        self.create_favourites_grid()
+        self.create_menu_bar()
+        self.create_favourites_groupbox()
         self.create_time_slider()
+        self.create_weather_display()
+        self.create_location_search_bar()
+        self.create_favourites_bar()
+        self.populate_favourites_list()
+        self.favourites_box_functionality()
+
+
+    def init_UI(self):
+        self.setFixedSize(900, 400)
+        self.setWindowTitle('4Cast - Extremely Advanced Meteorological Conditions Prediction System (' + version +')')
+        #self.mainframe.setWindowTitle('Continuously Updating Meteorological Forecast Internet Relayed System Technology')
+        self.show()
+
+    def create_menu_bar(self):
+        menubar = self.menuBar()
+        apimenu = menubar.addMenu('&API')
+        apiitem = apimenu.addAction('&Change Wunderground API Key')
+        apiitem.triggered.connect(api_window.api_change_window)
+
 
     def create_mainframe(self):
         self.mainframe = qtw.QWidget()
-        self.mainframe.setFixedSize(900, 400)
-        self.mainframe.setWindowTitle('Continuously Updating Meteorological Forecast Internet Relayed System Technology')
-        self.mainframe.show()
+        self.setCentralWidget(self.mainframe)
 
     def create_main_grid(self):
         self.maingrid = qtw.QGridLayout()
         self.mainframe.setLayout(self.maingrid)
 
-    def create_search_grid(self):
-        self.searchgrid = qtw.QGridLayout()
-        self.maingrid.addLayout(self.searchgrid, 0, 0)
+    def create_upper_grid(self):
+        self.uppergrid = qtw.QGridLayout()
+        self.maingrid.addLayout(self.uppergrid, 0, 0)
 
     def create_hourly_grid(self):
         self.hourlygrid = qtw.QGridLayout()
@@ -34,10 +58,35 @@ class GUI():
 
     def create_location_search_bar(self):
         self.locinput = qtw.QLineEdit()
-        self.locbutton = qtw.QPushButton('Retrieve')
-        self.locbutton.clicked.connect(self.update_display_location)
-        self.searchgrid.addWidget(self.locinput, 0, 0)
-        self.searchgrid.addWidget(self.locbutton, 0, 1)
+        self.locinput.setFixedWidth(300)
+        self.locinput.returnPressed.connect(lambda: self.update_display_location(self.get_searchbar_location().replace(' ', '_')))
+        self.locbutton = qtw.QPushButton('Get Forecast')
+        self.locbutton.setFixedWidth(110)
+        self.locbutton.clicked.connect(lambda: self.update_display_location(self.get_searchbar_location().replace(' ', '_')))
+        self.uppergrid.addWidget(self.locinput, 0, 0)
+        self.uppergrid.addWidget(self.locbutton, 0, 1)
+
+    def create_favourites_bar(self):
+        self.addtofavs = qtw.QPushButton('+')
+        self.addtofavs.setFixedWidth(50)
+        self.addtofavs.clicked.connect(self.add_to_favourites_list)
+        self.removefromfavs = qtw.QPushButton('-')
+        self.removefromfavs.setFixedWidth(50)
+        self.removefromfavs.clicked.connect(self.remove_selected_item_from_favourites_list)
+        self.favouritescombobox = qtw.QComboBox()
+        self.favouritescombobox.setFixedWidth(300)
+
+        self.favourites_grid.addWidget(self.addtofavs, 0, 1)
+        self.favourites_grid.addWidget(self.removefromfavs, 0, 2)
+        self.favourites_grid.addWidget(self.favouritescombobox, 0, 3)
+
+    def create_favourites_grid(self):
+        self.favourites_grid = qtw.QGridLayout()
+
+    def create_favourites_groupbox(self):
+        self.favourites_groupbox = qtw.QGroupBox('Favourites')
+        self.favourites_groupbox.setLayout(self.favourites_grid)
+        self.uppergrid.addWidget(self.favourites_groupbox, 0, 2)
 
     def create_weather_display(self):
         self.radardisplay = qtw.QLabel()
@@ -168,44 +217,144 @@ class GUI():
 
     def get_searchbar_location(self):
         location = self.locinput.text()
-        location = location.replace(' ', '_')
         return location
 
-    def update_display_location(self):
+    def no_connection_message(self, location):
+        self.statsdisplay.setText('ERROR\n'
+                                  'Could not find location \'' + location + '\'.\n'
+                                  'Posssible connection issues, or location not recognised.\n'
+                                  'Please try again.')
+        self.kill_slider_function()
+
+
+    def update_display_location(self, location):
         self.reset_weather_text_display()
         self.reset_slider()
-        location = self.get_searchbar_location()
-        program.get_json(location)
+        try:
+            program.get_json(location)
+        except:
+            self.no_connection_message(location)
+            return None
+
         try:
             self.get_conditions_report()
         except:
-            gui.statsdisplay.setText('ERROR\n'
-                                     'Could not find location \'' + location +'\'.\n'
-                                     'Posssible connection issues, or location not recognised.\n'
-                                     'Please try again.')
-            self.kill_slider_function()
-            return
+            self.no_connection_message(location)
+            return None
+
         self.time_slider_function()
         self.display_radar_image()
         self.display_weather_report(0)
 
+
+    def populate_favourites_list(self):
+        self.favouritescombobox.clear()
+        for i in program.favourites:
+            self.favouritescombobox.addItem(i)
+
+    def add_to_favourites_list(self):
+        program.favourites.append(self.get_searchbar_location())
+        program.favourites_json_save()
+        self.populate_favourites_list()
+
+    def remove_selected_item_from_favourites_list(self):
+        program.favourites.remove(self.get_favourites_list_selected_item())
+        program.favourites_json_save()
+        self.populate_favourites_list()
+
+    def get_favourites_list_selected_item(self):
+        return self.favouritescombobox.currentText()
+
+    def get_weather_from_favourites_combobox(self):
+        self.update_display_location(self.get_favourites_list_selected_item().replace(' ', '_'))
+
+    def favourites_box_functionality(self):
+        self.favouritescombobox.activated.connect(self.get_weather_from_favourites_combobox)
+
     def do_fuck_all(self):
         pass
+
+class API_Window():
+
+    def __init__(self):
+
+        self.api_key = self.get_current_api_key()
+
+    def api_change_window(self):
+        self.api_window = qtw.QWidget()
+        self.api_window.setFixedSize(200, 100)
+        self.api_window.setWindowTitle('Change API Key')
+
+        api_window_vbox = qtw.QVBoxLayout()
+        api_window_hbox = qtw.QHBoxLayout()
+
+        self.api_entry = qtw.QLineEdit(self.get_current_api_key())
+        api_ok = qtw.QPushButton('Ok')
+        api_cancel = qtw.QPushButton('Cancel')
+
+        api_window_vbox.addWidget(self.api_entry)
+        api_window_vbox.addLayout(api_window_hbox)
+        api_window_hbox.addWidget(api_ok)
+        api_window_hbox.addWidget(api_cancel)
+
+        api_ok.clicked.connect(self.ok_button)
+        api_cancel.clicked.connect(self.cancel_button)
+
+        self.api_window.setLayout(api_window_vbox)
+
+        self.api_window.show()
+
+    def cancel_button(self):
+        self.api_window.close()
+
+    def ok_button(self):
+        self.save_api_key()
+        self.api_window.close()
+
+    def save_api_key(self):
+        self.api_key = self.api_entry.text()
+        with open('apikey.json', 'w') as self.api_key_json:
+            json.dump(self.api_key, self.api_key_json)
+
+
+    def get_current_api_key(self):
+        try:
+            with open('apikey.json', 'r') as self.api_key_json:
+                api_key = json.load(self.api_key_json)
+        except:
+            api_key = 'API Key Here'
+
+        return api_key
 
 
 class Program():
 
+    def __init__(self):
+        try:
+            with open('favlocations.json', 'r') as self.favlocations:
+                self.favourites = json.load(self.favlocations)
+        except:
+            self.favourites = []
+            self.favourites_json_save()
+
+
+    def favourites_json_save(self):
+        with open('favlocations.json', 'w') as self.favlocations:
+            json.dump(self.favourites, self.favlocations)
 
     def get_json(self, location):
-        url = 'http://api.wunderground.com/api/' + api_key + '/conditions/hourly10day/satellite/q/' + location + '.json'
+        url = 'http://api.wunderground.com/api/' + api_window.api_key + '/conditions/hourly10day/satellite/q/' + location + '.json'
         print(url)
         url = urlopen(url).read().decode('utf8')
         self.api = json.loads(url)
 
+
+
+
 if __name__ == '__main__':
-    api_key = '3c06c2fea3463226'
     app = QtWidgets.QApplication(sys.argv)
     qtw = QtWidgets
     program = Program()
+    api_window = API_Window()
     gui = GUI()
     sys.exit(app.exec_())
